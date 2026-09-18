@@ -20,7 +20,10 @@ import {
   ChevronRight,
   AlertCircle,
   FileCheck,
-  Send
+  Send,
+  Check,
+  Tag,
+  X
 } from 'lucide-react';
 import { useAlumni } from '../../context/AlumniContext';
 import { Opportunity } from '../../types';
@@ -47,6 +50,39 @@ export const OpportunitiesView: React.FC = () => {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [matchOnly, setMatchOnly] = useState(false);
+  const [filterByMySkills, setFilterByMySkills] = useState(false);
+  const [selectedSkillTag, setSelectedSkillTag] = useState<string>('all');
+
+  // Verified skills from current user profile
+  const userVerifiedSkills = useMemo(() => {
+    return (currentUser?.skills || []).filter((s) => Boolean(s && s.trim()));
+  }, [currentUser?.skills]);
+
+  // Unique list of all skills across published opportunities
+  const availableJobSkills = useMemo(() => {
+    const skillSet = new Set<string>();
+    opportunities.forEach((opp) => {
+      if (!opp.approvalStatus || opp.approvalStatus === 'approved') {
+        (opp.skills || []).forEach((s) => {
+          if (s && s.trim()) skillSet.add(s.trim());
+        });
+      }
+    });
+    return Array.from(skillSet).sort((a, b) => a.localeCompare(b));
+  }, [opportunities]);
+
+  // Job count for each user verified skill
+  const userSkillMatchCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    userVerifiedSkills.forEach((skill) => {
+      const lower = skill.toLowerCase();
+      counts[skill] = opportunities.filter((o) => {
+        if (o.approvalStatus && o.approvalStatus !== 'approved') return false;
+        return (o.skills || []).some((s) => s.toLowerCase().includes(lower) || lower.includes(s.toLowerCase()));
+      }).length;
+    });
+    return counts;
+  }, [opportunities, userVerifiedSkills]);
 
   // Modals state
   const [showPostModal, setShowPostModal] = useState(false);
@@ -140,6 +176,29 @@ export const OpportunitiesView: React.FC = () => {
         selectedCourseFilter === 'all' ||
         (opp.requiredCourse || '').toLowerCase().includes(selectedCourseFilter.toLowerCase());
 
+      // Skills-based filter: match at least one verified profile skill
+      if (filterByMySkills) {
+        if (userVerifiedSkills.length > 0) {
+          const oppSkills = opp.skills || [];
+          const hasMatchingSkill = oppSkills.some((os) =>
+            userVerifiedSkills.some(
+              (us) => us.toLowerCase().includes(os.toLowerCase()) || os.toLowerCase().includes(us.toLowerCase())
+            )
+          );
+          if (!hasMatchingSkill) return false;
+        }
+      }
+
+      // Filter by specific selected skill tag
+      if (selectedSkillTag !== 'all') {
+        const target = selectedSkillTag.toLowerCase();
+        const oppSkills = opp.skills || [];
+        const matchesTag = oppSkills.some(
+          (s) => s.toLowerCase().includes(target) || target.includes(s.toLowerCase())
+        );
+        if (!matchesTag) return false;
+      }
+
       if (matchOnly) {
         const match = computeUserMatch(opp);
         if (!match || match.score < 75) return false;
@@ -147,7 +206,17 @@ export const OpportunitiesView: React.FC = () => {
 
       return matchesSearch && matchesType && matchesCourse;
     });
-  }, [opportunities, searchQuery, selectedType, selectedCourseFilter, matchOnly, currentUser]);
+  }, [
+    opportunities,
+    searchQuery,
+    selectedType,
+    selectedCourseFilter,
+    matchOnly,
+    filterByMySkills,
+    selectedSkillTag,
+    userVerifiedSkills,
+    currentUser
+  ]);
 
   const handleOpenPostModal = () => {
     if (currentUser?.role === 'employer' && currentUser?.companyName) {
@@ -339,6 +408,62 @@ export const OpportunitiesView: React.FC = () => {
                 <option value="Education">BSEd / Elementary Education</option>
               </select>
 
+              {/* Skills-Based Dropdown Filter */}
+              <select
+                value={selectedSkillTag}
+                onChange={(e) => setSelectedSkillTag(e.target.value)}
+                className="px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-700 font-medium max-w-[180px]"
+                title="Filter opportunities by specific required or verified skill"
+              >
+                <option value="all">All Skills ({availableJobSkills.length})</option>
+                {userVerifiedSkills.length > 0 && (
+                  <optgroup label="My Profile Skills (Verified)">
+                    {userVerifiedSkills.map((skill) => (
+                      <option key={`user-skill-${skill}`} value={skill}>
+                        ✓ {skill} ({userSkillMatchCounts[skill] || 0} jobs)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {availableJobSkills.length > 0 && (
+                  <optgroup label="All Industry Skills">
+                    {availableJobSkills.map((skill) => (
+                      <option key={`job-skill-${skill}`} value={skill}>
+                        {skill}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+
+              {/* One-Click Verified Skills Filter Toggle */}
+              {currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setFilterByMySkills(!filterByMySkills)}
+                  className={`px-3 py-2 text-xs rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    filterByMySkills
+                      ? 'bg-blue-600 text-white shadow-2xs ring-2 ring-blue-300'
+                      : 'bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100'
+                  }`}
+                  title={
+                    userVerifiedSkills.length > 0
+                      ? `Filter postings matching your verified skills (${userVerifiedSkills.join(', ')})`
+                      : 'Filter by your verified profile skills'
+                  }
+                >
+                  <ShieldCheck className={`w-3.5 h-3.5 ${filterByMySkills ? 'text-white' : 'text-blue-600'}`} />
+                  <span>My Verified Skills</span>
+                  {userVerifiedSkills.length > 0 && (
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      filterByMySkills ? 'bg-blue-800 text-white' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {userVerifiedSkills.length}
+                    </span>
+                  )}
+                </button>
+              )}
+
               {currentUser && (
                 <button
                   type="button"
@@ -355,6 +480,63 @@ export const OpportunitiesView: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Active Skills Filter Banner */}
+          {(filterByMySkills || selectedSkillTag !== 'all') && (
+            <div className="bg-blue-50/80 border border-blue-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-950">
+                  <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
+                  <span>Skills-Based Filter Active</span>
+                  <span className="text-[11px] font-normal text-blue-700">
+                    — Showing {publishedOpportunities.length} job{publishedOpportunities.length === 1 ? '' : 's'} matching {selectedSkillTag !== 'all' ? `"${selectedSkillTag}"` : 'your verified profile skills'}
+                  </span>
+                </div>
+
+                {userVerifiedSkills.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-800/80">
+                      Filter by specific skill:
+                    </span>
+                    {userVerifiedSkills.map((skill) => {
+                      const isSelected = selectedSkillTag.toLowerCase() === skill.toLowerCase();
+                      return (
+                        <button
+                          key={`chip-${skill}`}
+                          type="button"
+                          onClick={() => setSelectedSkillTag(isSelected ? 'all' : skill)}
+                          className={`px-2.5 py-0.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                            isSelected
+                              ? 'bg-blue-700 text-white shadow-2xs'
+                              : 'bg-white border border-blue-200 text-blue-900 hover:bg-blue-100/70'
+                          }`}
+                        >
+                          <span>{skill}</span>
+                          <span className={`text-[10px] ${isSelected ? 'text-blue-200' : 'text-blue-500'}`}>
+                            ({userSkillMatchCounts[skill] || 0})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterByMySkills(false);
+                    setSelectedSkillTag('all');
+                  }}
+                  className="px-3 py-1.5 bg-white border border-blue-200 hover:bg-blue-100/70 text-blue-800 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Clear Skills Filter</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Job Postings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -427,26 +609,43 @@ export const OpportunitiesView: React.FC = () => {
                       {opp.description}
                     </p>
 
-                    {/* Required Skills Chips */}
+                    {/* Required Skills Chips with Interactive Filter & Verification Indicators */}
                     {opp.skills && opp.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {opp.skills.map((s, idx) => {
-                          const isSkillMatched = (currentUser?.skills || []).some(
-                            (us) => us.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(us.toLowerCase())
-                          );
-                          return (
-                            <span
-                              key={idx}
-                              className={`px-2 py-0.5 text-[10px] font-medium rounded ${
-                                isSkillMatched
-                                  ? 'bg-emerald-100 text-emerald-800 font-bold'
-                                  : 'bg-stone-100 text-stone-700'
-                              }`}
-                            >
-                              {s} {isSkillMatched ? '✓' : ''}
+                      <div className="mt-3 space-y-1">
+                        {match && match.matchedSkillsCount > 0 && (
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            <span>
+                              {match.matchedSkillsCount} of {opp.skills.length} verified skill{match.matchedSkillsCount === 1 ? '' : 's'} match your profile
                             </span>
-                          );
-                        })}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5">
+                          {opp.skills.map((s, idx) => {
+                            const isSkillMatched = userVerifiedSkills.some(
+                              (us) => us.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(us.toLowerCase())
+                            );
+                            const isCurrentlySelected = selectedSkillTag.toLowerCase() === s.toLowerCase();
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSelectedSkillTag(isCurrentlySelected ? 'all' : s)}
+                                className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                  isCurrentlySelected
+                                    ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                                    : isSkillMatched
+                                    ? 'bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 hover:bg-emerald-200'
+                                    : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                                }`}
+                                title={`Click to filter jobs requiring ${s}`}
+                              >
+                                <span>{s}</span>
+                                {isSkillMatched && <Check className="w-2.5 h-2.5 text-emerald-700 inline" />}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -497,24 +696,44 @@ export const OpportunitiesView: React.FC = () => {
           </div>
 
           {publishedOpportunities.length === 0 && (
-            <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center shadow-2xs">
-              <Briefcase className="w-10 h-10 text-stone-300 mx-auto mb-2" />
-              <h3 className="text-sm font-bold text-stone-800">No Job Postings Matched Your Filters</h3>
-              <p className="text-xs text-stone-500 mt-1 max-w-md mx-auto">
-                Try expanding your search query or reset employment type and degree filters to browse all open Cecilian roles.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedType('all');
-                  setSelectedCourseFilter('all');
-                  setMatchOnly(false);
-                }}
-                className="mt-4 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl"
-              >
-                Reset All Filters
-              </button>
+            <div className="bg-white border border-stone-200 rounded-2xl p-12 text-center shadow-2xs space-y-3">
+              <Briefcase className="w-10 h-10 text-stone-300 mx-auto" />
+              <div>
+                <h3 className="text-sm font-bold text-stone-800">No Job Postings Matched Your Filters</h3>
+                <p className="text-xs text-stone-500 mt-1 max-w-md mx-auto">
+                  {filterByMySkills || selectedSkillTag !== 'all'
+                    ? `No job openings currently require ${selectedSkillTag !== 'all' ? `"${selectedSkillTag}"` : 'your verified profile skills'}. You can clear skills filtering or reset all criteria to view all active openings.`
+                    : 'Try expanding your search query or reset employment type and degree filters to browse all open Cecilian roles.'}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                {(filterByMySkills || selectedSkillTag !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterByMySkills(false);
+                      setSelectedSkillTag('all');
+                    }}
+                    className="px-4 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Clear Skills Filter
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedType('all');
+                    setSelectedCourseFilter('all');
+                    setMatchOnly(false);
+                    setFilterByMySkills(false);
+                    setSelectedSkillTag('all');
+                  }}
+                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  Reset All Filters
+                </button>
+              </div>
             </div>
           )}
         </div>

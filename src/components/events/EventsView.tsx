@@ -530,59 +530,67 @@ export const EventsView: React.FC = () => {
                   {/* RSVP & Attendance Tracker Component */}
                   <div className="pt-3 border-t border-stone-200/80 flex flex-col gap-2.5">
                     {/* RSVP Count Tracker */}
-                    <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/70 flex flex-col gap-1.5">
+                    <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-col gap-2 shadow-2xs">
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 font-bold text-stone-800">
-                          <Users className="w-3.5 h-3.5 text-[#8B181B]" />
-                          <span>RSVP Tracker:</span>
-                          <span className="text-[#8B181B] font-extrabold">{evt.attendeesCount} Registered</span>
-                          <span className="text-stone-400 font-normal">/ {evt.maxAttendees || 300} spots</span>
+                        <div className="flex items-center gap-1.5 font-bold text-stone-900">
+                          <Users className="w-4 h-4 text-[#8B181B]" />
+                          <span>RSVP Attendance Status:</span>
+                          <span className="text-[#8B181B] font-extrabold bg-[#8B181B]/10 px-2 py-0.5 rounded-md">
+                            {evt.attendeesCount} Confirmed
+                          </span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          evt.userRsvp === 'going'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : evt.userRsvp === 'interested'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-stone-200/70 text-stone-700'
-                        }`}>
-                          {evt.userRsvp === 'going'
-                            ? '✓ Confirmed Going'
-                            : evt.userRsvp === 'interested'
-                            ? 'Interested'
-                            : 'Open for RSVP'}
+                        <span className="text-xs text-stone-500 font-medium">
+                          {Math.min(100, Math.round((evt.attendeesCount / (evt.maxAttendees || 300)) * 100))}% Capacity ({evt.maxAttendees || 300} spots)
                         </span>
                       </div>
 
-                      {/* Capacity Progress Bar */}
-                      <div className="w-full bg-stone-200/80 h-2 rounded-full overflow-hidden">
+                      {/* Capacity Progress Bar with Visual Feedback */}
+                      <div className="w-full bg-stone-200 h-2.5 rounded-full overflow-hidden relative">
                         <div
                           className={`h-full transition-all duration-500 rounded-full ${
-                            evt.userRsvp === 'going' ? 'bg-emerald-500' : 'bg-[#8B181B]'
+                            evt.userRsvp === 'going'
+                              ? 'bg-emerald-500'
+                              : evt.attendeesCount / (evt.maxAttendees || 300) > 0.85
+                              ? 'bg-amber-500'
+                              : 'bg-[#8B181B]'
                           }`}
                           style={{
-                            width: `${Math.min(100, Math.max(8, Math.round((evt.attendeesCount / (evt.maxAttendees || 300)) * 100)))}%`
+                            width: `${Math.min(100, Math.max(6, Math.round((evt.attendeesCount / (evt.maxAttendees || 300)) * 100)))}%`
                           }}
                         />
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-stone-500">
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-between text-[11px] text-stone-500 pt-0.5">
+                        <div className="flex items-center gap-1.5">
                           <div className="flex -space-x-1.5 overflow-hidden py-0.5">
                             {(evt.attendees && evt.attendees.length > 0 ? evt.attendees.slice(0, 4) : []).map((att, i) => (
                               <img
                                 key={att.uid || i}
                                 src={att.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'}
                                 alt={att.name}
-                                className="inline-block h-4.5 w-4.5 rounded-full ring-1 ring-white object-cover shadow-2xs"
+                                className="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover shadow-2xs"
                               />
                             ))}
                           </div>
-                          <span className="text-[10px] text-stone-600 pl-1 font-medium">
-                            {evt.attendeesCount > 0 ? `${evt.attendeesCount} Cecilian alumni confirmed` : 'Be the first to RSVP!'}
+                          <span className="text-[11px] text-stone-700 font-semibold pl-1">
+                            {evt.attendeesCount > 0
+                              ? `${evt.attendeesCount} Cecilian alumni confirmed attendance`
+                              : 'No RSVPs yet — be the first to confirm attendance!'}
                           </span>
                         </div>
-                        <span className="text-[10px] text-emerald-700 font-semibold">
-                          ✓ Reminders: 1-Day Prior & Event Day
+
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          evt.userRsvp === 'going'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : evt.userRsvp === 'interested'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-stone-200 text-stone-700'
+                        }`}>
+                          {evt.userRsvp === 'going'
+                            ? '✓ Confirmed Attending'
+                            : evt.userRsvp === 'interested'
+                            ? 'Marked Interested'
+                            : 'RSVP Open'}
                         </span>
                       </div>
                     </div>
@@ -763,41 +771,70 @@ export const EventsView: React.FC = () => {
                     </span>
                   </div>
                   <div>
-                    <span className="text-stone-400 block">Attending</span>
+                    <span className="text-stone-400 block">Confirmed RSVPs</span>
                     <span className="font-semibold text-blue-700">
-                      {activeEvent.attendeesCount} / {activeEvent.maxAttendees} max
+                      {activeEvent.attendeesCount} / {activeEvent.maxAttendees} confirmed ({Math.min(100, Math.round((activeEvent.attendeesCount / (activeEvent.maxAttendees || 300)) * 100))}%)
                     </span>
                   </div>
                 </div>
 
-                {/* Attendance & RSVP Status Box */}
-                <div className="p-3.5 bg-stone-50 border border-stone-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
-                      Your Attendance Status
+                {/* Attendance & RSVP Status Box with Progress Bar */}
+                <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl space-y-3 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                        RSVP Attendance Status
+                      </div>
+                      <div className="text-xs font-semibold mt-0.5 flex items-center gap-1.5">
+                        {activeEvent.userRsvp === 'going' ? (
+                          <span className="text-emerald-700 flex items-center gap-1 font-bold">
+                            <Check className="w-4 h-4 text-emerald-600" />
+                            You are confirmed as Going
+                          </span>
+                        ) : activeEvent.userRsvp === 'interested' ? (
+                          <span className="text-amber-700 flex items-center gap-1 font-bold">
+                            <Sparkles className="w-4 h-4 text-amber-600" />
+                            You marked this event as Interested
+                          </span>
+                        ) : (
+                          <span className="text-stone-500 font-medium">
+                            You have not RSVP’d yet
+                          </span>
+                        )}
+                        <span className="text-stone-300">•</span>
+                        <span className="text-[11px] text-[#8B181B] font-bold">
+                          {activeEvent.attendeesCount} alumni confirmed attendance
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-xs font-semibold mt-0.5 flex items-center gap-1.5">
-                      {activeEvent.userRsvp === 'going' ? (
-                        <span className="text-emerald-700 flex items-center gap-1">
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          You are confirmed as Going
-                        </span>
-                      ) : activeEvent.userRsvp === 'interested' ? (
-                        <span className="text-amber-700 flex items-center gap-1">
-                          <Sparkles className="w-4 h-4 text-amber-600" />
-                          You marked this event as Interested
-                        </span>
-                      ) : (
-                        <span className="text-stone-500">
-                          You have not RSVP’d yet
-                        </span>
-                      )}
-                      <span className="text-stone-300">•</span>
-                      <span className="text-[10px] text-stone-400 font-normal">Real-time RSVP sync</span>
+
+                    <div className="text-xs text-stone-500 font-medium sm:text-right">
+                      <span>{Math.min(100, Math.round((activeEvent.attendeesCount / (activeEvent.maxAttendees || 300)) * 100))}% Capacity</span>
+                      <span className="block text-[10px] text-stone-400">{activeEvent.maxAttendees || 300} spots total</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Visual Progress Bar */}
+                  <div className="w-full bg-stone-200 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        activeEvent.userRsvp === 'going'
+                          ? 'bg-emerald-500'
+                          : activeEvent.attendeesCount / (activeEvent.maxAttendees || 300) > 0.85
+                          ? 'bg-amber-500'
+                          : 'bg-[#8B181B]'
+                      }`}
+                      style={{
+                        width: `${Math.min(100, Math.max(6, Math.round((activeEvent.attendeesCount / (activeEvent.maxAttendees || 300)) * 100)))}%`
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-[11px] text-stone-500">
+                      Auto-syncs attendee list & adds you to the Event Group Chat in Messaging
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => rsvpEvent(activeEvent.id, 'going')}
@@ -841,11 +878,12 @@ export const EventsView: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider mb-1.5">
-                    About this Event
-                  </h3>
+              <div>
+                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider mb-1.5">
+                  About this Event
+                </h3>
                   <p className="text-xs sm:text-sm text-stone-700 leading-relaxed whitespace-pre-line">
                     {activeEvent.description}
                   </p>

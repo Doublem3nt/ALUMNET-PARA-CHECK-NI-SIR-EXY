@@ -14,17 +14,22 @@ import {
   Building2,
   Users,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Briefcase,
+  GraduationCap,
+  DollarSign,
+  Radio
 } from 'lucide-react';
 import { useAlumni } from '../../context/AlumniContext';
-import { AlumniEvent, Announcement, FriendRequest, UserProfile } from '../../types';
+import { AlumniEvent, Announcement, FriendRequest, Opportunity, UserProfile } from '../../types';
 
 interface RecentActivityFeedProps {
   onOpenAnnouncement?: (announcement: Announcement) => void;
   onOpenEventModal?: (event: AlumniEvent) => void;
+  onOpenOpportunity?: (opportunity: Opportunity) => void;
 }
 
-type ActivityType = 'event' | 'announcement' | 'connection_request' | 'network_join';
+type ActivityType = 'event' | 'opportunity' | 'alumni_registration' | 'announcement' | 'connection_request';
 
 interface ActivityItem {
   id: string;
@@ -35,10 +40,11 @@ interface ActivityItem {
   subtitle?: string;
   contentSnippet?: string;
   badgeText?: string;
-  badgeVariant?: 'blue' | 'amber' | 'emerald' | 'red' | 'purple';
+  badgeVariant?: 'blue' | 'amber' | 'emerald' | 'red' | 'purple' | 'indigo';
   isUrgent?: boolean;
   avatarUrl?: string;
   eventData?: AlumniEvent;
+  opportunityData?: Opportunity;
   announcementData?: Announcement;
   friendRequestData?: {
     request: FriendRequest;
@@ -49,11 +55,13 @@ interface ActivityItem {
 
 export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
   onOpenAnnouncement,
-  onOpenEventModal
+  onOpenEventModal,
+  onOpenOpportunity
 }) => {
   const {
     currentUser,
     events,
+    opportunities,
     announcements,
     friendRequests,
     users,
@@ -67,7 +75,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
     setSelectedUserIdForModal
   } = useAlumni();
 
-  const [filter, setFilter] = useState<'all' | 'event' | 'announcement' | 'connection'>('all');
+  const [filter, setFilter] = useState<'all' | 'event' | 'opportunity' | 'alumni' | 'announcement'>('all');
 
   // Format relative time helper
   const getRelativeTime = (date: Date): string => {
@@ -103,14 +111,59 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
         title: evt.title,
         subtitle: `${evt.isVirtual ? 'Virtual Webinar' : evt.location} • ${evt.attendeesCount} alumni attending`,
         contentSnippet: evt.description,
-        badgeText: isFuture ? 'Upcoming Event' : 'Recent Gathering',
+        badgeText: isFuture ? 'Upcoming Campus Event' : 'Recent Event',
         badgeVariant: evt.isImportant ? 'red' : 'blue',
         isUrgent: evt.isImportant,
         eventData: evt
       });
     });
 
-    // 2. Announcements Activities
+    // 2. Job Opportunities Activities
+    const approvedOpportunities = opportunities.filter(
+      (opp) => !opp.approvalStatus || opp.approvalStatus === 'approved'
+    );
+    approvedOpportunities.forEach((opp) => {
+      const oppDate = new Date(opp.createdAt || Date.now());
+
+      items.push({
+        id: `act_opp_${opp.id}`,
+        type: 'opportunity',
+        timestamp: opp.createdAt || new Date().toISOString(),
+        dateObj: oppDate,
+        title: `${opp.title} at ${opp.company}`,
+        subtitle: `${opp.type} • ${opp.location} • ${opp.salaryOrStipend || 'Competitive Rate'}`,
+        contentSnippet: opp.description,
+        badgeText: `Hiring: ${opp.type}`,
+        badgeVariant: 'indigo',
+        opportunityData: opp
+      });
+    });
+
+    // 3. New Alumni Registrations
+    const registeredAlumni = users
+      .filter((u) => u.role === 'alumni' && u.uid !== currentUser?.uid)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    registeredAlumni.forEach((alum) => {
+      const joinDate = new Date(alum.createdAt || Date.now());
+      items.push({
+        id: `act_reg_${alum.uid}`,
+        type: 'alumni_registration',
+        timestamp: alum.createdAt || new Date().toISOString(),
+        dateObj: joinDate,
+        title: `${alum.name} joined the St. Cecilia Alumni Directory`,
+        subtitle: `Class of ${alum.batch || 'Alumni'} • ${alum.course || 'Degree Graduate'}`,
+        contentSnippet: alum.headline || alum.about || 'Newly registered Cecilian alumnus.',
+        badgeText: alum.batch && currentUser?.batch && alum.batch === currentUser.batch
+          ? `Batch ${currentUser.batch} Alum`
+          : 'New Registration',
+        badgeVariant: 'purple',
+        avatarUrl: alum.profilePictureUrl,
+        userData: alum
+      });
+    });
+
+    // 4. Announcements Activities
     announcements.forEach((ann) => {
       const pubDate = new Date(ann.publishedAt || Date.now());
 
@@ -129,7 +182,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
       });
     });
 
-    // 3. Incoming Connection Requests for current user
+    // 5. Incoming Connection Requests for current user
     if (currentUser) {
       friendRequests
         .filter((r) => r.toUid === currentUser.uid && r.status === 'pending')
@@ -154,61 +207,35 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
             }
           });
         });
-
-      // 4. Recently registered alumni from same batch or course (relevance recommendation)
-      const sameBatchOrCourseUsers = users
-        .filter(
-          (u) =>
-            u.uid !== currentUser.uid &&
-            u.role === 'alumni' &&
-            (u.batch === currentUser.batch || u.course === currentUser.course) &&
-            !isConnected(u.uid)
-        )
-        .slice(0, 2);
-
-      sameBatchOrCourseUsers.forEach((recUser) => {
-        const joinDate = new Date(recUser.createdAt || Date.now());
-        items.push({
-          id: `act_join_${recUser.uid}`,
-          type: 'network_join',
-          timestamp: recUser.createdAt || new Date().toISOString(),
-          dateObj: joinDate,
-          title: `${recUser.name} joined the St. Cecilia Alumni Network`,
-          subtitle: `Batch ${recUser.batch} • ${recUser.course}`,
-          contentSnippet: recUser.headline || 'New member registered in the official directory.',
-          badgeText: recUser.batch === currentUser.batch ? `Batch ${currentUser.batch} Alum` : 'Same Department',
-          badgeVariant: 'purple',
-          avatarUrl: recUser.profilePictureUrl,
-          userData: recUser
-        });
-      });
     }
 
     // Sort descending by recency
     return items.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
-  }, [events, announcements, friendRequests, users, currentUser, isConnected]);
+  }, [events, opportunities, announcements, friendRequests, users, currentUser]);
 
   // Filter items
   const filteredActivities = useMemo(() => {
     if (filter === 'all') return activityItems;
     if (filter === 'event') return activityItems.filter((i) => i.type === 'event');
-    if (filter === 'announcement') return activityItems.filter((i) => i.type === 'announcement');
-    if (filter === 'connection') {
+    if (filter === 'opportunity') return activityItems.filter((i) => i.type === 'opportunity');
+    if (filter === 'alumni') {
       return activityItems.filter(
-        (i) => i.type === 'connection_request' || i.type === 'network_join'
+        (i) => i.type === 'alumni_registration' || i.type === 'connection_request'
       );
     }
+    if (filter === 'announcement') return activityItems.filter((i) => i.type === 'announcement');
     return activityItems;
   }, [activityItems, filter]);
 
-  const pendingRequestsCount = friendRequests.filter(
-    (r) => r.toUid === currentUser?.uid && r.status === 'pending'
-  ).length;
+  const eventCount = useMemo(() => activityItems.filter((i) => i.type === 'event').length, [activityItems]);
+  const jobCount = useMemo(() => activityItems.filter((i) => i.type === 'opportunity').length, [activityItems]);
+  const alumniCount = useMemo(() => activityItems.filter((i) => i.type === 'alumni_registration').length, [activityItems]);
+  const announcementCount = useMemo(() => activityItems.filter((i) => i.type === 'announcement').length, [activityItems]);
 
   return (
     <div className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden">
-      {/* Feed Header */}
-      <div className="p-5 sm:p-6 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-stone-50/70 to-white">
+      {/* Feed Header with Real-Time Indicator */}
+      <div className="p-5 sm:p-6 border-b border-stone-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-stone-50/70 to-white">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-[#991B1B]/10 text-[#991B1B]">
@@ -217,17 +244,18 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
             <h2 className="text-base font-bold text-stone-900 tracking-tight">
               Recent Activity Feed
             </h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Live Updates
-            </span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Real-Time Sync</span>
+            </div>
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
-            Stay up to date with new alumni events, institutional bulletins, and connection requests
+          <p className="text-xs text-stone-500 mt-1">
+            Aggregated stream of campus event postings, new job opportunities, and recent alumni registrations
           </p>
         </div>
 
         {/* Filter Chips */}
-        <div className="flex items-center gap-1.5 bg-stone-100/90 p-1 rounded-xl shrink-0 self-start sm:self-center overflow-x-auto max-w-full">
+        <div className="flex items-center gap-1.5 bg-stone-100/90 p-1 rounded-xl shrink-0 self-start lg:self-center overflow-x-auto max-w-full">
           <button
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
@@ -236,7 +264,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            All Updates ({activityItems.length})
+            All Activity ({activityItems.length})
           </button>
 
           <button
@@ -248,7 +276,31 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Events ({events.length})</span>
+            <span>Events ({eventCount})</span>
+          </button>
+
+          <button
+            onClick={() => setFilter('opportunity')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'opportunity'
+                ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Jobs & Careers ({jobCount})</span>
+          </button>
+
+          <button
+            onClick={() => setFilter('alumni')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'alumni'
+                ? 'bg-white text-purple-700 shadow-2xs font-bold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>New Alumni ({alumniCount})</span>
           </button>
 
           <button
@@ -260,24 +312,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
             }`}
           >
             <Megaphone className="w-3.5 h-3.5" />
-            <span>Notices ({announcements.length})</span>
-          </button>
-
-          <button
-            onClick={() => setFilter('connection')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              filter === 'connection'
-                ? 'bg-white text-amber-700 shadow-2xs font-bold'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Connections</span>
-            {pendingRequestsCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-                {pendingRequestsCount}
-              </span>
-            )}
+            <span>Notices ({announcementCount})</span>
           </button>
         </div>
       </div>
@@ -289,14 +324,14 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
             <Clock className="w-8 h-8 text-stone-300 mx-auto mb-2" />
             <p className="text-xs font-bold text-stone-700">No recent activities in this category</p>
             <p className="text-[11px] text-stone-400 mt-0.5">
-              Check back soon for new community happenings or view all updates.
+              Check back soon for new community happenings or switch to All Activity.
             </p>
           </div>
         ) : (
-          filteredActivities.slice(0, 8).map((item) => {
+          filteredActivities.slice(0, 10).map((item) => {
             const timeAgo = getRelativeTime(item.dateObj);
 
-            // Render based on activity type
+            // 1. EVENT POSTING
             if (item.type === 'event' && item.eventData) {
               const evt = item.eventData;
               const evtDate = new Date(evt.startDate);
@@ -308,7 +343,6 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
                   className="p-4 sm:p-5 hover:bg-blue-50/20 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-3.5 min-w-0">
-                    {/* Event Calendar Icon Box */}
                     <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex flex-col items-center justify-center text-blue-700 shrink-0 shadow-2xs">
                       <span className="text-[9px] font-extrabold uppercase leading-none text-blue-600">
                         {evtDate.toLocaleString('default', { month: 'short' })}
@@ -321,7 +355,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800">
-                          {evt.type ? evt.type.toUpperCase() : 'EVENT'}
+                          {evt.type ? evt.type.toUpperCase() : 'CAMPUS EVENT'}
                         </span>
                         {evt.isImportant && (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-100 text-red-700 flex items-center gap-1">
@@ -336,14 +370,17 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
                       </div>
 
                       <h3
-                        onClick={() => setActiveTab('events')}
+                        onClick={() => {
+                          if (onOpenEventModal) onOpenEventModal(evt);
+                          else setActiveTab('events');
+                        }}
                         className="text-sm font-bold text-stone-900 mt-1 hover:text-blue-600 cursor-pointer truncate"
                       >
                         {evt.title}
                       </h3>
 
                       <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
-                        {evt.isVirtual ? 'Webinar Online' : evt.location} • {evt.attendeesCount} attending
+                        {evt.isVirtual ? 'Virtual Webinar' : evt.location} • <span className="font-semibold text-blue-700">{evt.attendeesCount} alumni confirmed</span>
                       </p>
                     </div>
                   </div>
@@ -363,10 +400,13 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
                     </button>
 
                     <button
-                      onClick={() => setActiveTab('events')}
+                      onClick={() => {
+                        if (onOpenEventModal) onOpenEventModal(evt);
+                        else setActiveTab('events');
+                      }}
                       className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
                     >
-                      <span>View</span>
+                      <span>Details</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -374,6 +414,170 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
               );
             }
 
+            // 2. JOB OPPORTUNITY POSTING
+            if (item.type === 'opportunity' && item.opportunityData) {
+              const opp = item.opportunityData;
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 sm:p-5 hover:bg-indigo-50/20 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0 shadow-2xs">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                          {opp.type || 'CAREER'}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-stone-100 text-stone-700 flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-stone-500" />
+                          {opp.company}
+                        </span>
+                        <span className="text-[11px] text-stone-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {timeAgo}
+                        </span>
+                      </div>
+
+                      <h3
+                        onClick={() => {
+                          if (onOpenOpportunity) onOpenOpportunity(opp);
+                          else setActiveTab('opportunities');
+                        }}
+                        className="text-sm font-bold text-stone-900 mt-1 hover:text-indigo-600 cursor-pointer truncate"
+                      >
+                        {opp.title}
+                      </h3>
+
+                      <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
+                        {opp.location} • {opp.salaryOrStipend || 'Competitive Salary'} • {opp.requiredCourse || 'Open to all graduates'}
+                      </p>
+
+                      {opp.skills && opp.skills.length > 0 && (
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          {opp.skills.slice(0, 3).map((skill, idx) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 bg-stone-100 text-stone-600 text-[10px] font-medium rounded-md"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {opp.skills.length > 3 && (
+                            <span className="text-[10px] text-stone-400 font-medium">
+                              +{opp.skills.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <button
+                      onClick={() => {
+                        if (onOpenOpportunity) onOpenOpportunity(opp);
+                        else setActiveTab('opportunities');
+                      }}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-xs"
+                    >
+                      <span>View & Apply</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // 3. NEW ALUMNI REGISTRATION
+            if (item.type === 'alumni_registration' && item.userData) {
+              const alum = item.userData;
+              const reqStatus = hasPendingRequestWith(alum.uid);
+              const connected = isConnected(alum.uid);
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 sm:p-5 hover:bg-purple-50/20 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <img
+                      src={
+                        alum.profilePictureUrl ||
+                        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80'
+                      }
+                      alt={alum.name}
+                      onClick={() => setSelectedUserIdForModal(alum.uid)}
+                      className="w-11 h-11 rounded-full object-cover border border-purple-200 shrink-0 cursor-pointer shadow-2xs hover:scale-105 transition-transform"
+                    />
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800 flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3" />
+                          {item.badgeText}
+                        </span>
+                        <span className="text-[11px] text-stone-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {timeAgo}
+                        </span>
+                      </div>
+
+                      <h3
+                        onClick={() => setSelectedUserIdForModal(alum.uid)}
+                        className="text-sm font-bold text-stone-900 mt-1 hover:text-purple-700 cursor-pointer truncate"
+                      >
+                        {alum.name}
+                      </h3>
+
+                      <p className="text-xs text-stone-500 mt-0.5 truncate">
+                        Batch {alum.batch || 'Alumni'} • {alum.course || 'Graduate'} {alum.location ? `• ${alum.location}` : ''}
+                      </p>
+
+                      {alum.headline && (
+                        <p className="text-[11px] text-stone-400 mt-0.5 truncate max-w-md">
+                          {alum.headline}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="self-end sm:self-center shrink-0 flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedUserIdForModal(alum.uid)}
+                      className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      Profile
+                    </button>
+
+                    {connected ? (
+                      <span className="px-3 py-1.5 text-xs text-emerald-700 bg-emerald-50 rounded-lg font-semibold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        Connected
+                      </span>
+                    ) : reqStatus === 'sent' ? (
+                      <span className="px-3 py-1.5 text-xs text-stone-500 bg-stone-100 rounded-lg">
+                        Pending
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => sendFriendRequest(alum.uid)}
+                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Connect</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // 4. ANNOUNCEMENT
             if (item.type === 'announcement' && item.announcementData) {
               const ann = item.announcementData;
 
@@ -439,6 +643,7 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
               );
             }
 
+            // 5. CONNECTION REQUEST
             if (item.type === 'connection_request' && item.friendRequestData) {
               const { request, sender } = item.friendRequestData;
 
@@ -502,91 +707,39 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
               );
             }
 
-            if (item.type === 'network_join' && item.userData) {
-              const alum = item.userData;
-              const reqStatus = hasPendingRequestWith(alum.uid);
-
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 sm:p-5 hover:bg-stone-50/50 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-3.5 min-w-0">
-                    <img
-                      src={
-                        alum.profilePictureUrl ||
-                        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80'
-                      }
-                      alt={alum.name}
-                      onClick={() => setSelectedUserIdForModal(alum.uid)}
-                      className="w-11 h-11 rounded-full object-cover border border-stone-200 shrink-0 cursor-pointer shadow-2xs"
-                    />
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800">
-                          {item.badgeText}
-                        </span>
-                        <span className="text-[11px] text-stone-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {timeAgo}
-                        </span>
-                      </div>
-
-                      <h3
-                        onClick={() => setSelectedUserIdForModal(alum.uid)}
-                        className="text-sm font-bold text-stone-900 mt-1 hover:text-blue-600 cursor-pointer"
-                      >
-                        {alum.name}
-                      </h3>
-
-                      <p className="text-xs text-stone-500 mt-0.5 truncate">
-                        Batch {alum.batch} • {alum.course}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="self-end sm:self-center shrink-0">
-                    {reqStatus === 'sent' ? (
-                      <span className="px-3 py-1.5 text-xs text-stone-500 bg-stone-100 rounded-lg">
-                        Request Sent
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => sendFriendRequest(alum.uid)}
-                        className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Connect</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
             return null;
           })
         )}
       </div>
 
       {/* Feed Footer */}
-      <div className="p-4 bg-stone-50/80 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-        <span>Showing latest community updates and announcements</span>
+      <div className="p-4 bg-stone-50/80 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span>Aggregated real-time feed: events, jobs, and alumni network</span>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('events')}
             className="font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
           >
-            <span>Events Calendar</span>
+            <span>Events</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
           <span>•</span>
           <button
-            onClick={() => setActiveTab('announcements')}
-            className="font-semibold text-[#991B1B] hover:text-[#7f1616] flex items-center gap-1"
+            onClick={() => setActiveTab('opportunities')}
+            className="font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
           >
-            <span>All Circulars</span>
+            <span>Career Board</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => setActiveTab('network')}
+            className="font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+          >
+            <span>Alumni Directory</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -594,3 +747,4 @@ export const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({
     </div>
   );
 };
+
