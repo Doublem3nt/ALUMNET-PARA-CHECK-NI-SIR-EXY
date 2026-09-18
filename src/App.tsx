@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlumniProvider, useAlumni } from './context/AlumniContext';
+import { AlumniProvider, useAlumni, STORAGE_KEYS } from './context/AlumniContext';
 import { Header } from './components/layout/Header';
 import { Navigation } from './components/layout/Navigation';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -27,11 +27,17 @@ import { VerificationGate } from './components/common/VerificationGate';
 import { GraduationCap, LogIn, UserPlus, Globe } from 'lucide-react';
 
 function AppContent() {
-  const { activeTab, setActiveTab, currentUser } = useAlumni();
+  const { activeTab, setActiveTab, currentUser, authReady } = useAlumni();
   const [currentView, setCurrentView] = useState<'landing' | 'portal' | 'auth'>(() => {
     try {
-      const saved = localStorage.getItem('alumni_auth_session_real_v1');
-      return saved ? 'portal' : 'auth';
+      const savedSession =
+        localStorage.getItem(STORAGE_KEYS.USER_ID) ||
+        localStorage.getItem('alumni_auth_session_real_v1');
+      const savedView = localStorage.getItem(STORAGE_KEYS.VIEW);
+      if (savedSession) {
+        return savedView === 'landing' ? 'landing' : 'portal';
+      }
+      return savedView === 'landing' ? 'landing' : 'auth';
     } catch {
       return 'auth';
     }
@@ -39,6 +45,30 @@ function AppContent() {
   const [authViewMode, setAuthViewMode] = useState<'login' | 'register'>('login');
   const [authRole, setAuthRole] = useState<'alumni' | 'employer'>('alumni');
   const [showProfileSetupModal, setShowProfileSetupModal] = useState(false);
+
+  // Sync currentView changes to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.VIEW, currentView);
+    } catch {}
+  }, [currentView]);
+
+  // Synchronize view state with user authentication status
+  React.useEffect(() => {
+    if (currentUser) {
+      if (currentView === 'auth') {
+        setCurrentView('portal');
+      }
+    } else {
+      const hasStoredSession =
+        typeof window !== 'undefined' &&
+        (!!localStorage.getItem(STORAGE_KEYS.USER_ID) ||
+         !!localStorage.getItem('alumni_auth_session_real_v1'));
+      if (!hasStoredSession && currentView === 'portal') {
+        setCurrentView('auth');
+      }
+    }
+  }, [currentUser, currentView]);
 
   React.useEffect(() => {
     // Prioritize Profile Setup on first-time login
@@ -56,6 +86,9 @@ function AppContent() {
 
   const handleLoginSuccess = (role?: string) => {
     setCurrentView('portal');
+    try {
+      localStorage.setItem(STORAGE_KEYS.VIEW, 'portal');
+    } catch {}
     if (role && ['admin', 'registrar', 'staff', 'moderator'].includes(role)) {
       setActiveTab('admin');
     } else if (role === 'employer') {
@@ -98,6 +131,22 @@ function AppContent() {
 
   // Protected Member Portal View (Mandatory authentication - no direct access to dashboard)
   if (!currentUser) {
+    const hasStoredSession =
+      typeof window !== 'undefined' &&
+      (!!localStorage.getItem(STORAGE_KEYS.USER_ID) ||
+       !!localStorage.getItem('alumni_auth_session_real_v1'));
+
+    if (hasStoredSession) {
+      return (
+        <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 rounded-full border-3 border-stone-200 border-t-[#8B181B] animate-spin" />
+            <p className="text-xs font-semibold text-stone-600">Restoring your Cecilian session...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <AuthPage
         initialMode="login"

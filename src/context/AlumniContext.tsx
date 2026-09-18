@@ -106,6 +106,7 @@ interface AlumniContextType {
   setSelectedUserIdForModal: (uid: string | null) => void;
   isFirebaseConnected: boolean;
   isFirestoreSyncing: boolean;
+  authReady: boolean;
   loginWithGoogle: () => Promise<boolean>;
   syncAllDataToCloud: () => Promise<void>;
   
@@ -260,7 +261,7 @@ interface AlumniContextType {
 
 const AlumniContext = createContext<AlumniContextType | null>(null);
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   USER_ID: 'alumni_auth_session_real_v2',
   USERS: 'alumni_users_v5',
   REQUESTS: 'alumni_friend_requests_v5',
@@ -280,7 +281,9 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'alumni_audit_logs_v2',
   AUTOMATION_JOBS: 'alumni_automation_jobs_v2',
   CAREER_SURVEYS: 'alumni_career_surveys_v2',
-  BACKUPS: 'alumni_backups_v2'
+  BACKUPS: 'alumni_backups_v2',
+  ACTIVE_TAB: 'alumni_active_tab_v2',
+  VIEW: 'alumni_active_view_v1'
 };
 
 export const AlumniProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -534,7 +537,14 @@ export const AlumniProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   });
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      return saved || 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [selectedUserIdForModal, setSelectedUserIdForModal] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -682,6 +692,14 @@ export const AlumniProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(backups));
   }, [backups]);
+
+  useEffect(() => {
+    if (activeTab) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      } catch {}
+    }
+  }, [activeTab]);
 
   // Firebase Auth State Observer
   useEffect(() => {
@@ -1448,7 +1466,14 @@ export const AlumniProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const logout = () => {
     signOutUser().catch(() => {});
     setCurrentUserId(null);
-    localStorage.removeItem(STORAGE_KEYS.USER_ID);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.USER_ID);
+      localStorage.removeItem('alumni_auth_session_real_v1');
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
+      localStorage.removeItem(STORAGE_KEYS.VIEW);
+      sessionStorage.clear();
+    } catch {}
+    setActiveTab('dashboard');
     showToast('Logged out successfully.');
   };
 
@@ -3656,6 +3681,7 @@ export const AlumniProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         permissions,
         isFirebaseConnected,
         isFirestoreSyncing,
+        authReady,
         loginWithGoogle,
         syncAllDataToCloud,
         login,
