@@ -43,7 +43,7 @@ import {
 
 // The designated Firestore Database ID
 export const FIRESTORE_DATABASE_ID =
-  firebaseConfig.firestoreDatabaseId || 'ai-studio-remixant-68ffa68b-37dd-45da-b7c6-99de097a8d90';
+  firebaseConfig.firestoreDatabaseId || 'ai-studio-latestsamgatanan-0da4a62b-6973-4375-8b65-ec74ad126f3e';
 
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();

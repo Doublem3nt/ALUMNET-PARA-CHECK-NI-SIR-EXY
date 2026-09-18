@@ -1083,12 +1083,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 <span>Sign in with Google</span>
               </button>
 
-              {/* Firebase Live Badge */}
-              <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-[11px] text-emerald-800 bg-emerald-50/90 border border-emerald-200 rounded-lg">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Firebase Authentication & Firestore Database Connected</span>
-              </div>
-
               {/* Bottom Switcher */}
               <div className="text-center pt-2 text-xs text-stone-500 space-y-1.5">
                 <div>
