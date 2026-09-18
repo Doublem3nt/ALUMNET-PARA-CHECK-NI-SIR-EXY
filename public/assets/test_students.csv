@@ -1,0 +1,18 @@
+student_id,first_name,last_name,email,graduation_year,course,verification_status
+SCC-2020-0192,Juan,Dela Cruz,juan.delacruz@alumni.stcecilia.edu,2024,B.S. Information Technology,verified
+SCC-2016-0812,Bea,Alonzo,bea.alonzo@alumni.stcecilia.edu,2020,B.S. Nursing,verified
+SCC-2018-0321,Rafael,Tan,rafael.tan@alumni.stcecilia.edu,2022,B.S. Computer Science,verified
+SCC-2019-0455,Camille,Vergara,camille.vergara@alumni.stcecilia.edu,2023,B.S. Accountancy,verified
+SCC-2021-0891,Carlos,Mendoza,carlos.mendoza@alumni.stcecilia.edu,2025,B.S. Business Administration,verified
+SCC-2017-0234,Patricia,Reyes,patricia.reyes@alumni.stcecilia.edu,2021,B.S. Hospitality Management,verified
+SCC-2015-0567,Gabriel,Santos,gabriel.santos@alumni.stcecilia.edu,2019,B.S. Secondary Education,verified
+SCC-2020-0777,Maria Clara,De Los Santos,mclara@alumni.stcecilia.edu,2024,B.S. Information Technology,verified
+SCC-2022-0314,Angelo,Villanueva,angelo.villanueva@alumni.stcecilia.edu,2026,B.S. Computer Engineering,verified
+SCC-2018-0911,Kristine,Fernandez,kristine.f@alumni.stcecilia.edu,2022,B.S. Tourism Management,verified
+sc-2016-1,Marco,Perez,marco.perez@unverified.test,2020,B.S. Civil Engineering,unverified
+SCC-2022-9999,Samantha,Lee,samantha.lee@unverified.test,2026,B.S. Psychology,unverified
+SCC-2018-0000,Jerome,Bautista,jerome.bautista@unverified.test,2022,B.S. Criminology,unverified
+SCC-2020-0192,John,Cruzer,john.cruzer@duplicate.test,2024,B.S. Information Technology,duplicate
+SCC-2019-0455,Camilla,Vergara-Smith,c.smith@duplicate.test,2023,B.S. Accountancy,duplicate
+SCC-2021-0891,Carl,Mendoza,carl.mendoza@duplicate.test,2025,B.S. Business Administration,duplicate
+SCC-2016-0812,Beatrice,Alonzo-Reyes,beatrice.alonzo@duplicate.test,2020,B.S. Nursing,duplicate

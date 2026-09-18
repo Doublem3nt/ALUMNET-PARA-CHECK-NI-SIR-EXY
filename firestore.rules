@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isStaffOrAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['jamessvenansali@gmail.com', 'sheepyawa@gmail.com'] ||
+        (request.auth.token.role in ['admin', 'staff', 'registrar', 'moderator']) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'staff', 'registrar', 'moderator'])
+      );
+    }
+
+    // Official Registrar Registry Records (CSV & Excel student/alumni masterlist)
+    match /registry_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Student Registry Conflict & Exception Records
+    match /conflict_records/{recordId} {
+      allow read, write: if true;
+    }
+
+    // Registrar Audit & Activity Logs
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Users & Alumni Profiles collection
+    match /users/{userId} {
+      allow read, write: if true;
+      
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Friend Requests
+    match /friend_requests/{requestId} {
+      allow read, write: if true;
+    }
+
+    // Connections collection
+    match /connections/{connectionId} {
+      allow read, write: if true;
+    }
+
+    // Conversations & Messages
+    match /conversations/{conversationId} {
+      allow read, write: if true;
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Chats and nested messages
+    match /chats/{chatId} {
+      allow read, write: if true;
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+
+    // Events
+    match /events/{eventId} {
+      allow read, write: if true;
+      match /{subcollection=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Announcements & Advisories
+    match /announcements/{announcementId} {
+      allow read, write: if true;
+    }
+
+    // Opportunities & Jobs
+    match /opportunities/{opportunityId} {
+      allow read, write: if true;
+    }
+
+    // Fallback catch-all for any other collections
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
